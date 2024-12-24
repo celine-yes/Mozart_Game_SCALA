@@ -1,4 +1,4 @@
-package upmc.akka.ppc
+package upmc.akka.leader
 
 import akka.actor._
 import scala.util.Random
@@ -6,7 +6,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global  
 
 object ConductorActor {
-  case object StartGame
+  case object StartConductor
 }
 
 class ConductorActor() extends Actor {
@@ -24,14 +24,14 @@ class ConductorActor() extends Actor {
 
   var result = 0
   def receive = {
-    case StartGame =>
-    //   println("Conductor started")
+    case StartConductor =>
+      println("Conductor started")
       result = dice1.nextInt(6) + dice2.nextInt(6) + 2
-    //   println(s"Result is $result")
+      println(s"Result is $result")
       mozart ! GetMeasure(result)
     
     case Measure(chordslist) =>
       player ! Measure(chordslist)
-      scheduler.scheduleOnce(TIME_BASE, self, StartGame)
+      scheduler.scheduleOnce(TIME_BASE, self, StartConductor)
     }
 }

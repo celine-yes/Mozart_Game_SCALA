@@ -9,7 +9,6 @@ object Projet {
 
    
      def main (args : Array[String]) {
-
           // Gestion des erreurs
           if (args.size != 1) {
                println ("Erreur de syntaxe : run <num>")
@@ -24,12 +23,6 @@ object Projet {
           }
 
           var musicienlist = List[Terminal]()
-          
-          val playerActor = system.actorOf(Props[PlayerActor], "PlayerActor")
-          val providerActor = system.actorOf(Props(new ProviderActor(dataBaseActor)), "ProviderActor")
-          val conductorActor = system.actorOf(Props(new ConductorActor(providerActor, playerActor)), "ConductorActor")
-
-          conductorActor ! ConductorActor.StartGame
           
           // recuperation des adresses de tous les musiciens
           // hardcoded path name

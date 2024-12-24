@@ -1,4 +1,4 @@
-package upmc.akka.ppc
+package upmc.akka.leader
 
 import akka.actor._
 
