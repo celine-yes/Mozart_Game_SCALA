@@ -1,6 +1,0 @@
-[0m[[0m[0mdebug[0m] [0m[0m> Exec(compile, Some(821a5b4f-9806-4849-9046-b18cb04ec3c2), Some(CommandSource(console0)))[0m
-[0m[[0m[0mdebug[0m] [0m[0mEvaluating tasks: Compile / compile[0m
-[0m[[0m[0mdebug[0m] [0m[0mRunning task... Cancel: Signal, check cycles: false, forcegc: true[0m
-[0m[[0m[0minfo[0m] [0m[0mcompiling 7 Scala sources to /home/celine/Documents/M2S1/PPC/tmes/Mozart_Game_SCALA/Projet_code/target/scala-2.11/classes ...[0m
-[0m[[0m[32msuccess[0m] [0m[0mTotal time: 5 s, completed Dec 23, 2024, 11:28:12 PM[0m
-[0m[[0m[0mdebug[0m] [0m[0m> Exec(shell, None, None)[0m

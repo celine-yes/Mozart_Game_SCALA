@@ -1,6 +1,0 @@
-[0m[[0m[31merror[0m] [0m[0m/home/celine/Documents/M2S1/PPC/tmes/Mozart_Game_SCALA/Projet_code/src/main/scala/Musicien.scala:84:82: Cannot find an implicit ExecutionContext. You might pass[0m
-[0m[[0m[31merror[0m] [0m[0man (implicit ec: ExecutionContext) parameter to your method[0m
-[0m[[0m[31merror[0m] [0m[0mor import scala.concurrent.ExecutionContext.Implicits.global.[0m
-[0m[[0m[31merror[0m] [0m[0m               context.actorSelection(actorPath).resolveOne(1.second).onComplete {[0m
-[0m[[0m[31merror[0m] [0m[0m                                                                                 ^[0m
-[0m[[0m[31merror[0m] [0m[0mone error found[0m
