@@ -1,37 +1,37 @@
 package upmc.akka.leader
 
 import akka.actor._
-import scala.util.Random
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global  
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Random
 
 object ConductorActor {
   case object StartConductor
 }
 
 class ConductorActor() extends Actor {
+  import ProviderActor._
   import ConductorActor._
   import DataBaseActor._
-  import PlayerActor._
-  import ProviderActor._
+  
+  val dice1 = new Random
+  val dice2 = new Random
+  val TIME_BASE = 1500.milliseconds
 
-  val player = context.actorOf(Props[PlayerActor], "theplayer")
-  val mozart = context.actorOf(Props(new ProviderActor(self)), "provider")
-  val dice1 = scala.util.Random
-  val dice2 = scala.util.Random
-  val scheduler = context.system.scheduler
-  val TIME_BASE = 1800.milliseconds
+  val providerActor = context.actorOf(Props(new ProviderActor(self)), "provider")
 
-  var result = 0
-  def receive = {
+  def receive: Receive = {
     case StartConductor =>
-      println("Conductor started")
-      result = dice1.nextInt(6) + dice2.nextInt(6) + 2
-      println(s"Result is $result")
-      mozart ! GetMeasure(result)
-    
-    case Measure(chordslist) =>
-      player ! Measure(chordslist)
-      scheduler.scheduleOnce(TIME_BASE, self, StartConductor)
-    }
+      val r = dice1.nextInt(6) + dice2.nextInt(6) + 2
+      println(s"[ConductorActor] => Lance dés => $r")
+      providerActor ! GetMeasure(r)
+
+    case Measure(chords) =>
+      println(s"[ConductorActor] => Reçu measure => DistributeMeasure au parent (Musicien Chef).")
+      context.parent ! DistributeMeasure(chords)
+      context.system.scheduler.scheduleOnce(TIME_BASE, self, StartConductor)
+
+    case other =>
+      println(s"[ConductorActor] => Message inconnu: $other")
+  }
 }

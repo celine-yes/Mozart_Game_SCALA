@@ -4,21 +4,21 @@ import akka.actor._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
+class ShouterActor(myId: Int) extends Actor {
 
-object ShouterActor {
-  case object StartShouter
-}
+  def receive: Receive = {
+    case "StartShouting" =>
+      context.system.scheduler.schedule(
+        2.seconds,  // initial delay
+        3.seconds,  // interval
+        self,
+        "ShoutNow"
+      )
 
-class ShouterActor(musicien: ActorRef, id: Int) extends Actor {
-    import ShouterActor._
+    case "ShoutNow" =>
+      context.parent ! AliveFromShouter(myId)
 
-    val scheduler = context.system.scheduler
-    val TIME_BASE = 600.milliseconds
-
-
-    def receive: Receive = {
-    case StartShouter =>
-        musicien ! Alive
-        scheduler.scheduleOnce(TIME_BASE, self, StartShouter)
+    case other =>
+      println(s"[ShouterActor-$myId] => Message inconnu: $other")
   }
 }

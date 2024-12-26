@@ -2,6 +2,8 @@ package upmc.akka.leader
 
 import com.typesafe.config.ConfigFactory
 import akka.actor._
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 case class Terminal (id:Int, ip:String, port:Int)
 
@@ -27,8 +29,13 @@ object Projet {
           // recuperation des adresses de tous les musiciens
           // hardcoded path name
           for(i <- 3 to 0 by -1){
-               val address = ConfigFactory.load().getConfig("system"+ i).getValue("akka.remote.netty.tcp.hostname").render()
-               val port = ConfigFactory.load().getConfig("system"+ i).getValue("akka.remote.netty.tcp.port").render()
+               val address = ConfigFactory.load()
+               .getConfig("system" + i)
+               .getString("akka.remote.netty.tcp.hostname")
+
+               val port = ConfigFactory.load()
+               .getConfig("system" + i)
+               .getInt("akka.remote.netty.tcp.port")
                musicienlist = Terminal(i, address, port.toInt)::musicienlist
           }
 
@@ -39,6 +46,8 @@ object Projet {
           val musicien = system.actorOf(Props(new Musicien(id, musicienlist)), "Musicien"+id)
 
           musicien ! Start
+
+          Await.result(system.whenTerminated, Duration.Inf)
      }
 
 }
