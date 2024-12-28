@@ -28,6 +28,9 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
   // Ensemble des vivants
   var aliveSet: Set[Int] = Set(myId)
 
+  def afficherRole(): String = {
+    if (isChef) "Chef" else "Musicien"
+  }
 
   def stopConductor(): Unit = {
     conductorActor.foreach(context.stop)
@@ -43,7 +46,7 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
   }
 
   override def preStart(): Unit = {
-    println(s"[Musicien-$myId] => Démarrage (façade). isChef=$isChef (initialement faux).")
+    println(s"[$afficherRole-$myId] => Démarrage (façade). isChef=$isChef (initialement faux).")
     for(t <- allTerminals if t.id != myId) {
       val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
       context.actorSelection(path) ! RequestChefId
@@ -58,13 +61,13 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     // 1) Démarrage
     // ----------------------------------------------------------------
     case Start =>
-      println(s"[Musicien-$myId] => Reçoit Start => on lance le ShouterActor.")
+      println(s"[$afficherRole-$myId] => Reçoit Start => on lance le ShouterActor.")
       shouterActor ! "StartShouting"
 
      // 1 seconde après le démarrage, on check si on est seul
     case "CheckAlone" =>
       if (!isChef && localChefId.isEmpty && aliveSet.size == 1) {
-        println(s"[Musicien-$myId] => Je suis seul, aucun Chef => je deviens Chef.")
+        println(s"[$afficherRole-$myId] => Je suis seul, aucun Chef => je deviens Chef.")
         isChef = true
         localChefId = Some(myId)
         listenerActor ! SetChefId(myId)
@@ -72,20 +75,20 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
       }
 
      case SetChefId(id) =>
-      println(s"[Musicien-$myId] => Reçu SetChefId($id). localChefId=$localChefId => devient $id.")
+      println(s"[$afficherRole-$myId] => Reçu SetChefId($id). localChefId=$localChefId => devient $id.")
       localChefId = Some(id)
       listenerActor ! SetChefId(id) // pour le ListenerActor
 
       if(id == myId) {
         // On me déclare Chef => isChef = true
         if(!isChef) {
-          println(s"[Musicien-$myId] => On me désigne Chef => isChef=true.")
+          println(s"[$afficherRole-$myId] => On me désigne Chef => isChef=true.")
           isChef = true
         }
       } else {
         // Un autre est Chef => if j'étais Chef, j'arrête
         if(isChef && id != myId) {
-          println(s"[Musicien-$myId] => On me retire Chef => isChef=false.")
+          println(s"[$afficherRole-$myId] => On me retire Chef => isChef=false.")
           isChef = false
           stopConductor()
         }
@@ -100,7 +103,7 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     // 2) Si on est Chef => démarrer le show
     // ----------------------------------------------------------------
     case "StartShow" if isChef =>
-      println(s"[Musicien-$myId] => Chef => création du Conductor et StartConductor.")
+      println(s"[$afficherRole-$myId] => Chef => création du Conductor et StartConductor.")
       
       
       listenerActor ! SetChefId(myId)
@@ -128,14 +131,14 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
       aliveSet = newSet
       // On lance la musique
       if (isChef && aliveSet.size > 1 && conductorActor.isEmpty && !showStarted) {
-       println(s"[Musicien-$myId] => Un autre player est arrivé, je démarre le show.")
+       println(s"[$afficherRole-$myId] => Un autre player est arrivé, je démarre le show.")
        
        if (conductorActor.isEmpty) {
-          println(s"[Musicien-$myId] => Je crée mon ConductorActor.")
+          println(s"[$afficherRole-$myId] => Je crée mon ConductorActor.")
           val c = context.actorOf(Props(new ConductorActor()), s"Conductor-$myId")
           conductorActor = Some(c)
       }
-       println(s"[Musicien-$myId] => Envoi StartConductor à ConductorActor.")
+       println(s"[$afficherRole-$myId] => Envoi StartConductor à ConductorActor.")
        conductorActor.foreach(_ ! StartConductor)
        self ! "StartShow"
        showStarted = true
@@ -144,25 +147,28 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     // ----------------------------------------------------------------
     // 4) Élection
     // ----------------------------------------------------------------
-    case StartElection =>
-      println(s"[Musicien-$myId] => Reçu StartElection => je relaie l'ElectionRequest à ElectorActor avec aliveSet: $aliveSet.")
-      electorActor ! ElectionRequest(aliveSet)
+    case StartElection(candidats) =>
+      println(s"[$afficherRole-$myId] => Reçu StartElection => je relaie l'ElectionRequest à ElectorActor avec candidats=$candidats.")
+      electorActor ! ElectionRequest(candidats)
 
     case ElectionRequest(aliveSet) =>
       electorActor ! ElectionRequest(aliveSet)
 
     case YouAreElected(newChefId) =>
-          println(s"[Musicien-$myId] => Nouveau Chef = $newChefId")
-          // Dire au listener : c’est le nouveau chef
-          listenerActor ! SetChefId(newChefId)
+      println(s"[$afficherRole-$myId] => Nouveau Chef élu: $newChefId")
+      localChefId = Some(newChefId)
+      isChef = (newChefId == myId)
 
-          if (newChefId == myId) {
-          isChef = true
-          self ! "StartShow"
-          } else {
-          isChef = false
-          stopConductor()
-     }
+      // Mettre à jour tous les autres musiciens
+      broadcastSetChefId(newChefId)
+
+      if (isChef) {
+        println(s"[$afficherRole-$myId] => Je suis le nouveau Chef.")
+        self ! "StartShow"
+      } else {
+        stopConductor()
+      }
+
 
     // ----------------------------------------------------------------
     // 5) ConductorActor => DistributeMeasure(chords)
@@ -171,9 +177,9 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     case DistributeMeasure(chords) if isChef =>
     
       val possiblePlayers = aliveSet - myId  // tous sauf moi
-      println(s"[Musicien-$myId] => DistributeMeasure => $possiblePlayers")
+      println(s"[$afficherRole-$myId] => DistributeMeasure => $possiblePlayers")
       if (possiblePlayers.isEmpty) {
-        println(s"[Musicien-$myId] => Aucun player vivant")
+        println(s"[$afficherRole-$myId] => Aucun player vivant")
       } else {
         val arr = possiblePlayers.toArray
         val target = arr(scala.util.Random.nextInt(arr.length))
@@ -181,10 +187,10 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
         allTerminals.find(_.id == target) match {
                case Some(t) =>
                val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
-               println(s"[Musicien-$myId] => Envoi Measure à Musicien${t.id}")
+               println(s"[$afficherRole-$myId] => Envoi Measure à Musicien${t.id}")
                context.actorSelection(path) ! Measure(chords)
                case None =>
-               println(s"[Musicien-$myId] => Impossible de trouver Terminal($target)")
+               println(s"[$afficherRole-$myId] => Impossible de trouver Terminal($target)")
           }
       }
 
@@ -192,19 +198,19 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     // 6) Réception Measure => je la joue localement
     // ----------------------------------------------------------------
     case Measure(chords) =>
-      println(s"[Musicien-$myId] => Je reçois Measure => PlayerActor.")
+      println(s"[$afficherRole-$myId] => Je reçois Measure => PlayerActor.")
       playerActor ! Measure(chords)
 
     // ----------------------------------------------------------------
     // 7) Stop
     // ----------------------------------------------------------------
     case Stop(reason) =>
-      println(s"[Musicien-$myId] => STOP($reason)")
+      println(s"[$afficherRole-$myId] => STOP($reason)")
       stopConductor()
       context.stop(self)
       context.system.terminate()
 
     case other =>
-      println(s"[Musicien-$myId] => Message inconnu: $other")
+      println(s"[$afficherRole-$myId] => Message inconnu: $other")
   }
 }

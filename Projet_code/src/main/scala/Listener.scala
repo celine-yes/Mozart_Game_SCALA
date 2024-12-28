@@ -12,8 +12,10 @@ class ListenerActor(myId: Int) extends Actor {
   override def preStart(): Unit = {
     // on check la vie
     context.system.scheduler.schedule(2.seconds, 3.seconds, self, "CheckAlive")
-  }
 
+    // Vérifie toutes les 30 secondes si le chef est seul
+    context.system.scheduler.schedule(30.seconds, 30.seconds, self, "CheckSoloChef")
+  }
   def receive: Receive = {
     case StillAlive(senderId) =>
       lastBeat += (senderId -> System.currentTimeMillis())
@@ -34,7 +36,7 @@ class ListenerActor(myId: Int) extends Actor {
         chefId.foreach { cid =>
           if (deadIDs.contains(cid)) {
             println(s"[Listener-$myId] => Chef $cid est mort => StartElection.")
-            context.parent ! StartElection
+            context.parent ! StartElection(alive.keySet - cid)
           }
         }
       }
@@ -42,9 +44,22 @@ class ListenerActor(myId: Int) extends Actor {
       // Informer le parent de la liste des vivants
       context.parent ! UpdatedAliveSet(alive.keySet)
 
-    case StartElection =>
-      context.parent ! ElectionRequest(lastBeat.keySet)
 
+    case "CheckSoloChef" =>
+      chefId match {
+        case Some(id) if id == myId && lastBeat.size == 1 => // Si je suis le chef et seul
+          println(s"[Listener-$myId] => Seul chef détecté pendant 30 secondes. Arrêt du programme.")
+          context.parent ! Stop("Le chef d'orchestre est seul.")
+          context.system.terminate()
+
+        case _ =>
+          println(s"[Listener-$myId] => Vérification : pas seul, pas d'arrêt.")
+      }
+
+    case StartElection =>
+      val cleanedAliveSet = lastBeat.keySet // Nettoyer uniquement les vivants
+      println(s"[Listener-$myId] => Nettoyage des morts avant Election: $cleanedAliveSet")
+      context.parent ! ElectionRequest(cleanedAliveSet)
 
     case other =>
       println(s"[Listener-$myId] => Reçu message inconnu: $other")

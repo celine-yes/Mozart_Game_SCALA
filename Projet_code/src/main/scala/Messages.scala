@@ -19,7 +19,7 @@ case class ForwardAlive(senderId: Int)
 case class StillAlive(senderId: Int)
 
 // Pour Election
-case object StartElection
+case class StartElection(candidats: Set[Int])
 case class ElectionRequest(aliveSet: Set[Int])
 case class YouAreElected(newChefId: Int)
 

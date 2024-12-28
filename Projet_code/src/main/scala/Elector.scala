@@ -7,6 +7,8 @@ class ElectorActor(myId: Int, allTerminals: List[Terminal]) extends Actor {
 
   def receive: Receive = {
     case ElectionRequest(aliveSet) =>
+    // afficher les candidats
+      println(s"[Elector-$myId] => ElectionRequest($aliveSet)")
       if (aliveSet.isEmpty) {
         println(s"[Elector-$myId] => Personne vivant => pas de Chef possible.")
       } else {
