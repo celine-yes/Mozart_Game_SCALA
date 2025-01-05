@@ -23,7 +23,7 @@ class ConductorActor() extends Actor {
   def receive: Receive = {
     case StartConductor =>
       val r = dice1.nextInt(6) + dice2.nextInt(6) + 2
-      println(s"[ConductorActor] => Lance dés => $r")
+      // println(s"[ConductorActor] => Lance dés => $r")
       providerActor ! GetMeasure(r)
 
     case Measure(chords) =>

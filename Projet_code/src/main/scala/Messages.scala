@@ -3,25 +3,26 @@ package upmc.akka.leader
 import scala.concurrent.duration._
 import DataBaseActor.Chord
 
-/** Messages pour la logique du jeu Mozart */
-case object Start             // Pour démarrer dans le main
-case object StartConductor    // ConductorActor => lancer la boucle
+case object Start             //pour démarrer dans le main
+case object StartConductor    //conductorActor => lancer la boucle
 case class Stop(reason: String)
 
 case class GetMeasure(result: Int)
 
-// Pour le Conductor
+//Conductor
 case class DistributeMeasure(chords: List[Chord])
 
-// Pour Heartbeats
+//vie des musiciens
 case class AliveFromShouter(id: Int)
 case class ForwardAlive(senderId: Int)
 case class StillAlive(senderId: Int)
 
-// Pour Election
+//election
 case class StartElection(candidats: Set[Int])
 case class ElectionRequest(aliveSet: Set[Int])
 case class YouAreElected(newChefId: Int)
+case class YouAreElectedFromElector(newChefId: Int)
 
-// SetChefId pour informer le ListenerActor
+
+//setChefId pour informer le ListenerActor
 case class SetChefId(id: Int)

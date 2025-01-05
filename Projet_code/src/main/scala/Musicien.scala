@@ -12,20 +12,19 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
   import PlayerActor._
   import DataBaseActor._
 
-  // Sous-acteurs
   val playerActor   = context.actorOf(Props[PlayerActor], s"player_$myId")
   //val providerActor = context.actorOf(Props(new ProviderActor(self)), "provider")
   val listenerActor = context.actorOf(Props(new ListenerActor(myId)), s"listener_$myId")
   val electorActor  = context.actorOf(Props(new ElectorActor(myId, allTerminals)), s"elector_$myId")
   val shouterActor  = context.actorOf(Props(new ShouterActor(myId)), s"shouter_$myId")
 
-  // Chef
+  //chef
   var isChef = false
   var localChefId: Option[Int] = None
   var conductorActor: Option[ActorRef] = None
   var showStarted = false
 
-  // Ensemble des vivants
+  //vivants
   var aliveSet: Set[Int] = Set(myId)
 
   def afficherRole(): String = {
@@ -38,7 +37,7 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
   }
 
   def broadcastSetChefId(newChefId: Int): Unit = {
-     // On l’envoie à tous (y compris soi-même, ou on peut s’exclure si on veut)
+     //on l’envoie à tous
      for(t <- allTerminals) {
        val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
        context.actorSelection(path) ! SetChefId(newChefId)
@@ -57,9 +56,6 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
 
   def receive: Receive = {
 
-    // ----------------------------------------------------------------
-    // 1) Démarrage
-    // ----------------------------------------------------------------
     case Start =>
       println(s"[$afficherRole-$myId] => Reçoit Start => on lance le ShouterActor.")
       shouterActor ! "StartShouting"
@@ -80,13 +76,13 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
       listenerActor ! SetChefId(id) // pour le ListenerActor
 
       if(id == myId) {
-        // On me déclare Chef => isChef = true
+        //on me déclare Chef => isChef = true
         if(!isChef) {
           println(s"[$afficherRole-$myId] => On me désigne Chef => isChef=true.")
           isChef = true
         }
       } else {
-        // Un autre est Chef => if j'étais Chef, j'arrête
+        //un autre est Chef => if j'étais Chef, j'arrête
         if(isChef && id != myId) {
           println(s"[$afficherRole-$myId] => On me retire Chef => isChef=false.")
           isChef = false
@@ -99,37 +95,29 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
         sender() ! SetChefId(id)
       }
 
-    // ----------------------------------------------------------------
-    // 2) Si on est Chef => démarrer le show
-    // ----------------------------------------------------------------
+    // si on est Chef => démarrer conductor
     case "StartShow" if isChef =>
       println(s"[$afficherRole-$myId] => Chef => création du Conductor et StartConductor.")
       
-      
       listenerActor ! SetChefId(myId)
 
-
-    // ----------------------------------------------------------------
-    // 3) ShouterActor => AliveFromShouter(myId)
-    //    => on relaie vers les autres et on met à jour le ListenerActor
-    // ----------------------------------------------------------------
+    //on relaie son état vers les autres et on met à jour le ListenerActor
     case AliveFromShouter(id) =>
-      // Mise à jour locale
+      //maj locale
       listenerActor ! StillAlive(id)
-      // Forward aux autres
+      //transmission aux autres musiciens
       for (t <- allTerminals if t.id != myId) {
           val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
           context.actorSelection(path) ! ForwardAlive(myId)
       }
 
+    //reçu des autres musiciens
     case ForwardAlive(senderId) =>
-      // Reçu de l'extérieur => on le passe au Listener
       listenerActor ! StillAlive(senderId)
 
-    // ListenerActor nous envoie la liste des vivants
+    //listenerActor nous envoie la liste des vivants
     case UpdatedAliveSet(newSet) =>
       aliveSet = newSet
-      // On lance la musique
       if (isChef && aliveSet.size > 1 && conductorActor.isEmpty && !showStarted) {
        println(s"[$afficherRole-$myId] => Un autre player est arrivé, je démarre le show.")
        
@@ -144,9 +132,7 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
        showStarted = true
       }
 
-    // ----------------------------------------------------------------
-    // 4) Élection
-    // ----------------------------------------------------------------
+    // Élection
     case StartElection(candidats) =>
       println(s"[$afficherRole-$myId] => Reçu StartElection => je relaie l'ElectionRequest à ElectorActor avec candidats=$candidats.")
       electorActor ! ElectionRequest(candidats)
@@ -154,12 +140,19 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
     case ElectionRequest(aliveSet) =>
       electorActor ! ElectionRequest(aliveSet)
 
+    //recu de Elector local
+    case YouAreElectedFromElector(newChefId) =>
+      for (t <- allTerminals if t.id != myId) {
+            val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
+            context.actorSelection(path) ! YouAreElected(newChefId)
+        }
+
     case YouAreElected(newChefId) =>
       println(s"[$afficherRole-$myId] => Nouveau Chef élu: $newChefId")
       localChefId = Some(newChefId)
       isChef = (newChefId == myId)
 
-      // Mettre à jour tous les autres musiciens
+      //maj pour tous les autres musiciens
       broadcastSetChefId(newChefId)
 
       if (isChef) {
@@ -170,20 +163,17 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
       }
 
 
-    // ----------------------------------------------------------------
-    // 5) ConductorActor => DistributeMeasure(chords)
-    //    => On choisit un player vivant (différent de soi) au hasard
-    // ----------------------------------------------------------------
+    //choisir un player vivant (différent de soi) au hasard
     case DistributeMeasure(chords) if isChef =>
     
-      val possiblePlayers = aliveSet - myId  // tous sauf moi
+      val possiblePlayers = aliveSet - myId 
       println(s"[$afficherRole-$myId] => DistributeMeasure => $possiblePlayers")
       if (possiblePlayers.isEmpty) {
         println(s"[$afficherRole-$myId] => Aucun player vivant")
       } else {
         val arr = possiblePlayers.toArray
         val target = arr(scala.util.Random.nextInt(arr.length))
-        // Envoi
+
         allTerminals.find(_.id == target) match {
                case Some(t) =>
                val path = s"akka.tcp://MozartSystem${t.id}@${t.ip}:${t.port}/user/Musicien${t.id}"
@@ -194,16 +184,12 @@ class Musicien(myId: Int, allTerminals: List[Terminal]) extends Actor {
           }
       }
 
-    // ----------------------------------------------------------------
-    // 6) Réception Measure => je la joue localement
-    // ----------------------------------------------------------------
+    //recu des autres musiciens
     case Measure(chords) =>
       println(s"[$afficherRole-$myId] => Je reçois Measure => PlayerActor.")
       playerActor ! Measure(chords)
 
-    // ----------------------------------------------------------------
-    // 7) Stop
-    // ----------------------------------------------------------------
+    // Arret
     case Stop(reason) =>
       println(s"[$afficherRole-$myId] => STOP($reason)")
       stopConductor()

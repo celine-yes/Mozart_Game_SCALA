@@ -9,8 +9,8 @@ class ShouterActor(myId: Int) extends Actor {
   def receive: Receive = {
     case "StartShouting" =>
       context.system.scheduler.schedule(
-        2.seconds,  // initial delay
-        3.seconds,  // interval
+        2.seconds,
+        3.seconds,
         self,
         "ShoutNow"
       )

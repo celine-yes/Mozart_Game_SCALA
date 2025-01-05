@@ -50,7 +50,7 @@ class ProviderActor(conductor: ActorRef) extends Actor {
 
     // Récupérer la mesure à partir du tableau
     case GetMeasure(num) =>
-      println(s"Le résultat est : $num, compteur : $compteur")
+      //println(s"Le résultat est : $num, compteur : $compteur")
       // ajuster le numéro pour correspondre à l'index du tableau
       var nnum = num-2
       // Calculer la partie (partie1 ou partie2) en fonction du compteur
